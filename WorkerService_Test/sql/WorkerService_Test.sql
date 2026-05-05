@@ -1,0 +1,13 @@
+CREATE TABLE BANK2000.basis.STATISTICS_TEST (
+ID INT IDENTITY(1,1) PRIMARY KEY,
+Debit_Segment VARCHAR(20),
+Credit_Segment Varchar(20),
+ChannelID INT ,
+OP_Date DATE,
+OP_Count INT DEFAULT 0,
+
+CONSTRAINT UQ_Stats UNIQUE (Debit_Segment, Credit_Segment, ChannelID, OP_Date)
+);
+
+SELECT * FROM  BANK2000.basis.STATISTICS_TEST
+
