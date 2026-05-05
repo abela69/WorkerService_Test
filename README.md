@@ -123,19 +123,4 @@ CREATE TABLE BANK2000.basis.STATISTICS_TEST (
 );
 ```
 
----
 
-## როგორ გაუშვა
-1. `appsettings.json` შეავსე კონფიგურაციით
-2. SQL ცხრილი შექმენი
-3. გაუშვი:
-```bash
-dotnet run
-```
-
----
-
-## Unit Tests გაშვება
-```bash
-dotnet test
-```
