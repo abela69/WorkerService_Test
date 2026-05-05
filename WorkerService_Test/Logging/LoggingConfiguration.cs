@@ -10,7 +10,6 @@ namespace WorkerService_Test.Logging
         public static void Configure()
         {
             var logPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Logging", "logs", "log-.txt");
-            Console.WriteLine($"Log path: {logPath}");
 
             Log.Logger = new LoggerConfiguration()
                 .MinimumLevel.Information()
