@@ -26,7 +26,6 @@ namespace WorkerService_Test.Worker
             _repository = repository;
         }
 
-
         private async Task InitializeRabbitMqAsync()
         {
             var factory = new ConnectionFactory()
@@ -38,10 +37,10 @@ namespace WorkerService_Test.Worker
             };
 
             _connection = await factory.CreateConnectionAsync();
-            Console.WriteLine("Connected!");
+            _logger.LogInformation("RabbitMQ Connected!");
 
             _channel = await _connection.CreateChannelAsync();
-            Console.WriteLine("Channel created!");
+            _logger.LogInformation("Channel created!");
 
             await _channel.QueueDeclareAsync(
                 queue: "statistics_queue",
@@ -49,7 +48,7 @@ namespace WorkerService_Test.Worker
                 exclusive: false,
                 autoDelete: false
             );
-            Console.WriteLine("✅ Queue declared!");
+            _logger.LogInformation("Queue declared!");
 
             await _channel.QueueBindAsync(
                 queue: "statistics_queue",
@@ -62,19 +61,23 @@ namespace WorkerService_Test.Worker
                 exchange: _config["RabbitMQ:Exchange"],
                 routingKey: "b6.transaction.delete"
             );
-            Console.WriteLine("Queue bound!");
+            _logger.LogInformation("Queue bound!");
         }
 
         private async Task HandleMessageAsync(string routingKey, string message)
         {
+            _logger.LogInformation("Message მოვიდა! RoutingKey: {RoutingKey}", routingKey);
 
-            Console.WriteLine($"Message მოვიდა! RoutingKey: {routingKey}");
             var doc = JsonSerializer.Deserialize<DocumentMessage>(message);
 
-            Console.WriteLine($"DebitCustomerId:  {doc.DebitCustomerId}");
-            Console.WriteLine($"CreditCustomerId: {doc.CreditCustomerId}");
+            _logger.LogInformation("DebitCustomerId: {DebitId}, CreditCustomerId: {CreditId}",
+                doc.DebitCustomerId, doc.CreditCustomerId);
 
-            if (doc.DebitCustomerId == null && doc.CreditCustomerId == null) return;
+            if (doc.DebitCustomerId == null && doc.CreditCustomerId == null)
+            {
+                _logger.LogWarning("ორივე CustomerId null — გამოტოვება!");
+                return;
+            }
 
             var debitSegment = doc.DebitCustomerId != null
                 ? await _segmentService.GetQuery(doc.DebitCustomerId.Value)
@@ -84,10 +87,13 @@ namespace WorkerService_Test.Worker
                 ? await _segmentService.GetQuery(doc.CreditCustomerId.Value)
                 : "N/A";
 
-            Console.WriteLine($"Debit Segment:  {debitSegment}");
-            Console.WriteLine($"Credit Segment: {creditSegment}");
+            _logger.LogInformation("Debit: {Debit}, Credit: {Credit}", debitSegment, creditSegment);
 
-            if (debitSegment == "N/A" && creditSegment == "N/A") return;
+            if (debitSegment == "N/A" && creditSegment == "N/A")
+            {
+                _logger.LogWarning("ორივე სეგმენტი N/A — გამოტოვება!");
+                return;
+            }
 
             int count = routingKey == "b6.transaction.create" ? 1 : -1;
 
@@ -96,10 +102,11 @@ namespace WorkerService_Test.Worker
                 var exists = await _repository.ExistsAsync(debitSegment, creditSegment, doc.ChannelId, doc.Date);
                 if (!exists)
                 {
-                    Console.WriteLine("row არ არსებობს — გამოტოვება!");
+                    _logger.LogWarning("Row არ არსებობს — გამოტოვება!");
                     return;
                 }
             }
+
             await _repository.UpdateStatisticsAsync(
                 debitSegment,
                 creditSegment,
@@ -108,22 +115,22 @@ namespace WorkerService_Test.Worker
                 count
             );
 
-            Console.WriteLine($"ჩაიწერა! Count: {count}");
+            _logger.LogInformation("ჩაიწერა! Count: {Count}", count);
         }
+
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
             await InitializeRabbitMqAsync();
             var consumer = new AsyncEventingBasicConsumer(_channel);
             consumer.ReceivedAsync += async (model, ea) =>
             {
-                Console.WriteLine("📨 Consumer-მა დაიჭირა message!");
+                _logger.LogInformation("Consumer-მა დაიჭირა message!");
                 var routingKey = ea.RoutingKey;
-                var rawMessage = Encoding.UTF8.GetString(ea.Body.ToArray()); 
+                var rawMessage = Encoding.UTF8.GetString(ea.Body.ToArray());
 
                 var jsonStart = rawMessage.IndexOf('{');
                 var message = jsonStart >= 0 ? rawMessage.Substring(jsonStart) : rawMessage;
 
-                Console.WriteLine($"JSON: {message}");
                 try
                 {
                     await HandleMessageAsync(routingKey, message);
@@ -146,6 +153,7 @@ namespace WorkerService_Test.Worker
             stoppingToken.Register(() => tcs.SetResult());
             await tcs.Task;
         }
+
         public override async Task StopAsync(CancellationToken cancellationToken)
         {
             _logger.LogInformation("StatisticsWorker stopping...");
@@ -161,9 +169,8 @@ namespace WorkerService_Test.Worker
                 await _connection.CloseAsync();
                 await _connection.DisposeAsync();
             }
+
             await base.StopAsync(cancellationToken);
-
         }
-
     }
 }

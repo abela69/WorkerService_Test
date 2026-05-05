@@ -1,27 +1,21 @@
 using RabbitMQ.Client;
+using Serilog;
 using WorkerService_Test;
+using WorkerService_Test.Logging;
 using WorkerService_Test.Repository;
 using WorkerService_Test.Services;
 using WorkerService_Test.Worker;
 
-
-
-
-//var factory = new ConnectionFactory()
-//{
-//    HostName = "test-rabbit-srv.bsb.ge",
-//    UserName = "test",
-//    Password = "Qwer@1234",
-//    VirtualHost = "B6dev"
-//};
-
-//Console.Write("connect");
-//var connection = await factory.CreateConnectionAsync();
-//Console.WriteLine("Connected to RabbitMQ! ✅");
-
 Console.OutputEncoding = System.Text.Encoding.UTF8;
 
+Console.WriteLine("Before logging configure"); // ← დაამატე
+LoggingConfiguration.Configure();
+Console.WriteLine("After logging configure");  // ← დაამატე
+
 var builder = Host.CreateApplicationBuilder(args);
+
+builder.Logging.ClearProviders();
+builder.Logging.AddSerilog();
 
 builder.Services.AddSingleton<SegmentService>();
 builder.Services.AddSingleton<StatisticsRepository>();
