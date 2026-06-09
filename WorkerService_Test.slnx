@@ -1,3 +1,7 @@
 <Solution>
+  <Folder Name="/Solution Items/">
+    <File Path=".gitignore" />
+  </Folder>
+  <Project Path="WorkerService_Test.Tests/WorkerService_Test.Tests.csproj" Id="6aca76b8-e030-48a8-a5e2-6280af7c423c" />
   <Project Path="WorkerService_Test/WorkerService_Test.csproj" />
 </Solution>

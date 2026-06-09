@@ -26,6 +26,31 @@ namespace WorkerService_Test.Worker
             _repository = repository;
         }
 
+        protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+        {
+            await InitializeRabbitMqAsync();
+
+            if (_channel is null)
+            {
+                _logger.LogError("Channel ვერ შეიქმნა — სერვისი ჩერდება.");
+                return;
+            }
+
+            var consumer = new AsyncEventingBasicConsumer(_channel);
+            consumer.ReceivedAsync += OnMessageReceivedAsync;
+
+            await _channel!.BasicConsumeAsync(
+                queue: "statistics_queue",
+                autoAck: false,
+                consumer: consumer
+            );
+
+            _logger.LogInformation("სერვისი გაეშვა. statistics_queue-ს ვუსმენთ.");
+
+            await Task.Delay(Timeout.Infinite, stoppingToken)
+                      .ContinueWith(_ => Task.CompletedTask);
+        }
+
         private async Task InitializeRabbitMqAsync()
         {
             var factory = new ConnectionFactory()
@@ -61,7 +86,45 @@ namespace WorkerService_Test.Worker
                 exchange: _config["RabbitMQ:Exchange"],
                 routingKey: "b6.transaction.delete"
             );
+
             _logger.LogInformation("Queue bound!");
+        }
+
+        private async Task OnMessageReceivedAsync(object model, BasicDeliverEventArgs ea)
+        {
+            var routingKey = ea.RoutingKey;
+            var rawMessage = Encoding.UTF8.GetString(ea.Body.ToArray());
+
+            var message = ExtractJson(rawMessage);
+            if (message == null)
+            {
+                _logger.LogWarning("არასწორი JSON მოვიდა. RoutingKey: {RoutingKey}", routingKey);
+                await _channel!.BasicNackAsync(ea.DeliveryTag, multiple: false, requeue: false);
+                return;
+            }
+
+            try
+            {
+                await HandleMessageAsync(routingKey, message);
+                await _channel!.BasicAckAsync(ea.DeliveryTag, false);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "შეცდომა message-ის დამუშავებისას. RoutingKey: {RoutingKey}", routingKey);
+                await _channel!.BasicNackAsync(ea.DeliveryTag, false, requeue: false);
+            }
+        }
+
+        private string? ExtractJson(string rawMessage)
+        {
+            if (string.IsNullOrWhiteSpace(rawMessage))
+                return null;
+
+            var jsonStart = rawMessage.IndexOf('{');
+            if (jsonStart < 0)
+                return null;
+
+            return rawMessage.Substring(jsonStart);
         }
 
         private async Task HandleMessageAsync(string routingKey, string message)
@@ -69,6 +132,11 @@ namespace WorkerService_Test.Worker
             _logger.LogInformation("Message მოვიდა! RoutingKey: {RoutingKey}", routingKey);
 
             var doc = JsonSerializer.Deserialize<DocumentMessage>(message);
+            if (doc is null)
+            {
+                _logger.LogWarning("Deserialization ვერ მოხერხდა — გამოტოვება!");
+                return;
+            }
 
             _logger.LogInformation("DebitCustomerId: {DebitId}, CreditCustomerId: {CreditId}",
                 doc.DebitCustomerId, doc.CreditCustomerId);
@@ -116,42 +184,6 @@ namespace WorkerService_Test.Worker
             );
 
             _logger.LogInformation("ჩაიწერა! Count: {Count}", count);
-        }
-
-        protected override async Task ExecuteAsync(CancellationToken stoppingToken)
-        {
-            await InitializeRabbitMqAsync();
-            var consumer = new AsyncEventingBasicConsumer(_channel);
-            consumer.ReceivedAsync += async (model, ea) =>
-            {
-                _logger.LogInformation("Consumer-მა დაიჭირა message!");
-                var routingKey = ea.RoutingKey;
-                var rawMessage = Encoding.UTF8.GetString(ea.Body.ToArray());
-
-                var jsonStart = rawMessage.IndexOf('{');
-                var message = jsonStart >= 0 ? rawMessage.Substring(jsonStart) : rawMessage;
-
-                try
-                {
-                    await HandleMessageAsync(routingKey, message);
-                    await _channel!.BasicAckAsync(ea.DeliveryTag, false);
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogError(ex, "Error processing message with routing key: {RoutingKey}", routingKey);
-                    await _channel!.BasicNackAsync(ea.DeliveryTag, false, requeue: false);
-                }
-            };
-
-            await _channel!.BasicConsumeAsync(
-                queue: "statistics_queue",
-                autoAck: false,
-                consumer: consumer
-            );
-
-            var tcs = new TaskCompletionSource();
-            stoppingToken.Register(() => tcs.SetResult());
-            await tcs.Task;
         }
 
         public override async Task StopAsync(CancellationToken cancellationToken)
