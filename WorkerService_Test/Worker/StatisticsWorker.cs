@@ -135,7 +135,7 @@ namespace WorkerService_Test.Worker
             if (doc is null)
             {
                 _logger.LogWarning("Deserialization ვერ მოხერხდა — გამოტოვება!");
-                return;
+                throw new InvalidOperationException("Deserialization returned null.");
             }
 
             _logger.LogInformation("DebitCustomerId: {DebitId}, CreditCustomerId: {CreditId}",
@@ -144,7 +144,7 @@ namespace WorkerService_Test.Worker
             if (doc.DebitCustomerId == null && doc.CreditCustomerId == null)
             {
                 _logger.LogWarning("ორივე CustomerId null — გამოტოვება!");
-                return;
+              
             }
 
             var debitSegment = doc.DebitCustomerId != null
@@ -160,7 +160,7 @@ namespace WorkerService_Test.Worker
             if (debitSegment == "N/A" && creditSegment == "N/A")
             {
                 _logger.LogWarning("ორივე სეგმენტი N/A — გამოტოვება!");
-                return;
+                throw new InvalidOperationException("Both segments are N/A.");
             }
 
             int count = routingKey == "b6.transaction.create" ? 1 : -1;
@@ -171,7 +171,7 @@ namespace WorkerService_Test.Worker
                 if (!exists)
                 {
                     _logger.LogWarning("Row არ არსებობს — გამოტოვება!");
-                    return;
+                    throw new InvalidOperationException("Row not found for delete.");
                 }
             }
 

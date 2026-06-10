@@ -1,8 +1,4 @@
 ﻿using FluentAssertions;
-using Moq;
-using System;
-using System.Collections.Generic;
-using System.Text;
 using WorkerService_Test.Repository;
 using Microsoft.Extensions.Configuration;
 
@@ -15,11 +11,17 @@ namespace WorkerService_Test.Tests
 
         public StatisticsRepositoryTests()
         {
-            var configMock = new Mock<IConfiguration>();
-            configMock.Setup(c => c.GetConnectionString("DefaultConnection"))
-                .Returns("Server=devcluster\\devserv;Database=BANK2000;Trusted_Connection=True;TrustServerCertificate=True;");
+            // GetConnectionString extension method-ია
+            // ამიტომ Mock-ის მაგივრად პირდაპირ IConfiguration-ს ვაწყობთ
+            var config = new ConfigurationBuilder()
+                .AddInMemoryCollection(new Dictionary<string, string?>
+                {
+                    ["ConnectionStrings:DefaultConnection"] =
+                        "Server=devcluster\\devserv;Database=BANK2000;Trusted_Connection=True;TrustServerCertificate=True;"
+                })
+                .Build();
 
-            _repository = new StatisticsRepository(configMock.Object);
+            _repository = new StatisticsRepository(config);
         }
 
         [Fact]

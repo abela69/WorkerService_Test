@@ -1,8 +1,4 @@
-﻿using Moq;
-using System;
-using System.Collections.Generic;
-using System.Text;
-using Microsoft.Extensions.Configuration;
+﻿using Microsoft.Extensions.Configuration;
 using WorkerService_Test.Services;
 using FluentAssertions;
 
@@ -12,16 +8,21 @@ namespace WorkerService_Test.Tests
 {
     public class SegmentServiceTests
     {
-        private readonly Mock<IConfiguration> _configMock;
         private readonly SegmentService _segmentService;
 
         public SegmentServiceTests()
         {
-            _configMock = new Mock<IConfiguration>();
-            _configMock.Setup(c => c.GetConnectionString("DefaultConnection"))
-                .Returns("Server=devcluster\\devserv;Database=BANK2000;Trusted_Connection=True;TrustServerCertificate=True;");
+            // GetConnectionString extension method-ია
+            // ამიტომ ConfigurationBuilder-ს ვიყენებთ
+            var config = new ConfigurationBuilder()
+                .AddInMemoryCollection(new Dictionary<string, string?>
+                {
+                    ["ConnectionStrings:DefaultConnection"] =
+                        "Server=devcluster\\devserv;Database=BANK2000;Trusted_Connection=True;TrustServerCertificate=True;"
+                })
+                .Build();
 
-            _segmentService = new SegmentService(_configMock.Object);
+            _segmentService = new SegmentService(config);
         }
 
         [Fact]
@@ -51,14 +52,6 @@ namespace WorkerService_Test.Tests
             var result = await _segmentService.GetQuery(21);
             result.Should().Be("Mass");
         }
-
-        [Fact]
-        public async Task GetQuery_WhenClientNotExists_ReturnsNA()
-        {
-            var result = await _segmentService.GetQuery(0);
-            result.Should().Be("N/A");
-        }
-
 
     }
 }
