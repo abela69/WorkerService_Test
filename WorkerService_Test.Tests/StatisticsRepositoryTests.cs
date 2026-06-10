@@ -11,8 +11,7 @@ namespace WorkerService_Test.Tests
 
         public StatisticsRepositoryTests()
         {
-            // GetConnectionString extension method-ია
-            // ამიტომ Mock-ის მაგივრად პირდაპირ IConfiguration-ს ვაწყობთ
+            
             var config = new ConfigurationBuilder()
                 .AddInMemoryCollection(new Dictionary<string, string?>
                 {

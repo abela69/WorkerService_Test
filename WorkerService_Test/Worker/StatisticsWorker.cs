@@ -60,7 +60,6 @@ namespace WorkerService_Test.Worker
                 Password = _config["RabbitMQ:Password"],
                 VirtualHost = _config["RabbitMQ:VirtualHost"]
             };
-
             _connection = await factory.CreateConnectionAsync();
             _logger.LogInformation("RabbitMQ Connected!");
 

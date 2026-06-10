@@ -12,8 +12,7 @@ namespace WorkerService_Test.Tests
 
         public SegmentServiceTests()
         {
-            // GetConnectionString extension method-ია
-            // ამიტომ ConfigurationBuilder-ს ვიყენებთ
+         
             var config = new ConfigurationBuilder()
                 .AddInMemoryCollection(new Dictionary<string, string?>
                 {
